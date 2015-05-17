@@ -42,7 +42,10 @@ if __name__ == '__main__' :
     LEVEL_TYPE = { 1 : 'S', 2 : 'S', 3 : 'M', 4 : 'T' }
 
     # parameters
-    current_stock = [ { 'level': lvl, 'height': h, 'stock': np.random.rand() } for lvl, h in itertools.product(LEVELS,HEIGHTS) ]
+    current_stock = [
+        { 'level': lvl, 'height': h, 'stock': np.random.rand() }
+        for lvl, h in itertools.product(LEVELS,HEIGHTS)
+        if HEIGHTS.index(h) <= HEIGHTS.index(LEVEL_TYPE[lvl]) ]
     current_stock = pd.DataFrame.from_records(current_stock, index=('level','height'))['stock']
 
     stock_capacity = [ { 'level': lvl, 'capacity': 10. } for lvl in LEVELS ]
@@ -56,14 +59,14 @@ if __name__ == '__main__' :
     additional_stock = pd.DataFrame.from_records(additional_stock, index=('level','height'))['stock']
 
     # derived
-    total_stock = current_stock + additional_stock
+    total_stock = current_stock.add(additional_stock, fill_value=0.)
 
     current_stock_by_height = current_stock.reset_index().groupby('height')['stock'].sum()
     total_stock_by_height = total_stock.reset_index().groupby('height')['stock'].sum()
     total_stock_by_level = total_stock.reset_index().groupby('level')['stock'].sum()
 
-    current_stock_by_height_scaled = current_stock_by_height.apply( lambda x : inventory_multiplier * x )
-
+    current_stock_by_height_scaled = current_stock_by_height.apply( lambda x : x * inventory_multiplier )
+    
     # problem setup
     objective = cvxpy.Maximize(inventory_multiplier)
     
@@ -93,6 +96,7 @@ if __name__ == '__main__' :
     p = cvxpy.Problem(objective, constr)
     
     if True :
+        #p.solve(solver=cvxpy.CVXOPT)
         p.solve()
 
         soln = defaultdict( lambda : defaultdict(float) )
