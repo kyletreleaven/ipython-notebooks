@@ -34,21 +34,29 @@ if __name__ == '__main__' :
         -Additional stock satisfies priority constraints
     """
 
-    STOCKS = ['S','M','T']
-    STORES = [ 1,2,3,4 ]
+    STOCKS = ['A','B','C']
+    STORES = [ 1, 2, 3, 4 ]
 
-    stock_priority = { 'S': 1, 'M': 2, 'T': 3 }
+    # stock of priority x must be inducted to a store of priority >= x
+    stock_priority = { 'A': 1, 'B': 2, 'C': 3 }
     store_priority = { 1: 1, 2: 1, 3: 2, 4: 3 }
 
     # parameters
     current_stock = [
-        { 'stock': stock, 'store': store, 'quantity': np.random.rand() }
-        for stock in STOCKS for store in STORES ]
-        #if HEIGHTS.index(h) <= HEIGHTS.index(LEVEL_TYPE[lvl]) ]
+        { 'stock': 'A', 'store': 1, 'quantity': 2. },
+        { 'stock': 'B', 'store': 1, 'quantity': 3. },
+        { 'stock': 'C', 'store': 4, 'quantity': 1. }
+        ]
+
     current_stock = pd.DataFrame.from_records(current_stock, index=('stock','store'))['quantity']
 
     #store_capacity = [ { 'store': store, 'capacity': 10. * np.random.rand() } for store in STORES ]
-    store_capacity = [ { 'store': store, 'capacity': 10. } for store in STORES ]
+    store_capacity = [
+            { 'store': 1, 'capacity': 100. },
+            { 'store': 2, 'capacity': 100. },
+            { 'store': 3, 'capacity': 10. },
+            { 'store': 4, 'capacity': 10. } ]
+
     store_capacity = pd.DataFrame.from_records(store_capacity, index=('store'))['capacity']
 
     # problem variables
@@ -56,7 +64,7 @@ if __name__ == '__main__' :
     
     # helper variables  
     additional_stock = [
-        { 'stock': stock, 'store': store, 'quantity': cvxpy.Variable(name='x_{%s,%d}' % (stock,store) ) }
+        { 'stock': stock, 'store': store, 'quantity': cvxpy.Variable(name='x[%s,%d]' % (stock,store) ) }
         for stock in STOCKS for store in STORES ]
     additional_stock = pd.DataFrame.from_records(additional_stock, index=('stock','store'))['quantity']
 
@@ -92,11 +100,20 @@ if __name__ == '__main__' :
         if store_priority[store] < stock_priority[stock] )
 
     p = cvxpy.Problem(objective, constr)
-    
-    if True :
-        #p.solve(solver=cvxpy.CVXOPT)
-        p.solve()
+    p.solve(solver=cvxpy.CVXOPT)
 
-        soln = { stock: { store: total_stock[stock,store].value for store in STORES } for stock in STOCKS }
-        print soln
-            
+    if True :
+        to_readable = lambda x : '%.2f' % x.value
+
+        print 'inventory multiplier: ', inventory_multiplier.value
+        print 'additional stock:'
+        print additional_stock.apply( to_readable )
+
+        print 'total stock by store:'
+        print pd.concat([ total_stock_by_store.apply( to_readable), store_capacity ], axis=1)
+        #print total_stock_by_store.apply( to_readable )
+
+
+        print 'C doesn\'t saturate ', total_stock['C',4].value < store_capacity[4]
+
+
